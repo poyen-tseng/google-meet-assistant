@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="用流程圖了解 OpenBot Google Meet 助理的會議監聽、LINE 控制、代理協作與筆記交付。">
+  <title>Google Meet 助理系統｜OpenBot</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --meet-bg: #f3f5ee;
+      --meet-paper: #fdfefa;
+      --meet-ink: #192e29;
+      --meet-muted: #475e56;
+      --meet-green: #17604b;
+      --meet-line: #cadace;
+      --meet-soft: #e5f0e7;
+      --meet-blue: #234f73;
+      --meet-sky: #e8f0f8;
+      --meet-dark: #102f28;
+      --meet-accent: #d9f5a8;
+      font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+      scroll-padding-top: 80px;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; color: var(--meet-ink); background: var(--meet-bg); line-height: 1.6; }
+    h1, h2, h3, p, figure, blockquote { margin: 0; }
+    h1, h2, h3 { line-height: 1.22; }
+    code { font-family: "Cascadia Code", Consolas, monospace; overflow-wrap: anywhere; }
+    a { color: inherit; text-underline-offset: .22em; }
+    a:focus-visible, summary:focus-visible { outline: 3px solid #20634d; outline-offset: 4px; }
+    .wrap { width: min(1110px, calc(100% - 52px)); margin-inline: auto; }
+    .topbar { position: sticky; top: 0; z-index: 1; background: var(--meet-bg); border-bottom: 1px solid var(--meet-line); }
+    .top { min-height: 60px; display: flex; justify-content: space-between; align-items: center; gap: 6px 20px; }
+    .brand { display: inline-flex; gap: 9px; align-items: center; font-weight: 800; text-decoration: none; }
+    .brand::before { content: ""; width: 15px; height: 15px; border: 4px solid var(--meet-accent); background: var(--meet-green); border-radius: 4px; box-shadow: 0 0 0 1px var(--meet-green); }
+    nav { display: flex; flex-wrap: wrap; gap: 5px 20px; color: var(--meet-muted); font-size: .88rem; }
+    nav a { text-decoration: none; }
+    nav a:hover { text-decoration: underline; }
+    main { padding-top: 23px; }
+    section { margin-block: 53px; }
+    h2 { font-size: clamp(1.58rem, 3.3vw, 2.18rem); letter-spacing: -.03em; margin-bottom: 15px; }
+    h3 { font-size: 1.08rem; }
+    .hero {
+      border-radius: 22px; color: #f5faf3; padding: clamp(26px, 4.8vw, 56px);
+      background: radial-gradient(ellipse at 100% 0%, #2e6351, transparent 63%), var(--meet-dark);
+    }
+    .hero h1 { font-size: clamp(2.2rem, 6vw, 4.55rem); letter-spacing: -.045em; }
+    .hero h1 span { color: var(--meet-accent); display: inline-block; }
+    .hero p { font-size: clamp(.99rem, 2vw, 1.15rem); color: #ddecdf; margin-top: 14px; }
+    .panel {
+      padding: clamp(16px, 2.5vw, 25px); border: 1px solid var(--meet-line);
+      border-radius: 15px; background: var(--meet-paper);
+    }
+    .route { --route-color: var(--meet-green); --route-fill: var(--meet-soft); }
+    .route + .route { padding-top: 15px; margin-top: 15px; border-top: 1px solid var(--meet-line); }
+    .route.line, .task { --route-color: var(--meet-blue); --route-fill: var(--meet-sky); }
+    figcaption { font-weight: 760; margin-bottom: 10px; }
+    .route figcaption { color: var(--route-color); }
+    .chain, .stack, .inputs, .outputs { margin: 0; padding: 0; list-style: none; }
+    .chain { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: 25px; }
+    .node {
+      position: relative; min-width: 0; padding: 12px 13px; border: 1px solid var(--meet-line);
+      border-radius: 10px; background: #f7faf6; text-align: start;
+    }
+    .node strong { display: block; line-height: 1.35; color: var(--route-color, var(--meet-green)); }
+    .node small { display: block; margin-top: 3px; font-size: .82rem; color: var(--meet-muted); }
+    .chain li + li::before {
+      content: "→"; position: absolute; right: calc(100% + 5px); top: 50%;
+      transform: translateY(-50%); color: var(--route-color, var(--meet-green)); font-weight: 800;
+    }
+    .chain .start, .chain .end { background: var(--route-fill, var(--meet-soft)); }
+    .decision { margin-top: 17px; text-align: center; background: var(--meet-soft); }
+    .decision::before {
+      content: "↓"; position: absolute; top: -18px; left: 50%;
+      transform: translateX(-50%); line-height: 1; color: var(--meet-green); font-weight: 800;
+    }
+    .fork, .outputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; position: relative; }
+    .fork { padding-top: 26px; }
+    .fork::before { content: ""; position: absolute; top: 12px; left: 25%; right: 25%; border-top: 1px solid #789c89; }
+    .fork::after { content: ""; position: absolute; top: 0; left: 50%; height: 13px; border-left: 1px solid #789c89; }
+    .branch {
+      position: relative; padding: 15px; border: 1px solid var(--meet-line); border-radius: 12px;
+      background: var(--route-fill, var(--meet-soft));
+    }
+    .branch::before { content: ""; position: absolute; top: -15px; height: 14px; left: 50%; border-left: 1px solid #789c89; }
+    .branch h3 { color: var(--route-color, var(--meet-green)); margin-bottom: 8px; }
+    .branch blockquote { font-size: .9rem; margin-bottom: 12px; color: var(--meet-ink); }
+    .stack li { margin-bottom: 15px; }
+    .stack li + li::before {
+      content: "↓"; position: absolute; bottom: 100%; left: 50%; transform: translate(-50%, 1px);
+      line-height: 1; color: var(--route-color, var(--meet-green)); font-weight: 850;
+    }
+    .stack li:last-child { margin-bottom: 0; }
+    .stack .node { padding-block: 10px; background: var(--meet-paper); }
+    .join { position: relative; height: 24px; margin-inline: calc(25% - 3px); }
+    .join::before { content: ""; position: absolute; inset: 0 0 12px; border: solid #789c89; border-width: 0 1px 1px; }
+    .join::after { content: ""; position: absolute; top: 12px; bottom: 0; left: 50%; border-left: 1px solid #789c89; }
+    .merge {
+      margin: 0 auto; padding: 8px 13px; border-radius: 8px; width: fit-content; text-align: center;
+      background: var(--meet-dark); color: #f4fcf2; font-size: .9rem; font-weight: 740;
+    }
+    .merge::before { content: "↓"; margin-right: 8px; color: var(--meet-accent); }
+    .under { margin-top: 12px; color: var(--meet-muted); font-size: .88rem; }
+    .role-grid { display: grid; gap: 9px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 13px; }
+    .role-grid div { padding: 11px 13px; border: 1px solid var(--meet-line); border-radius: 9px; background: var(--meet-paper); }
+    .role-grid dt { font-weight: 750; color: var(--meet-green); }
+    .role-grid dd { margin: 3px 0 0; color: var(--meet-muted); font-size: .86rem; }
+    .panel + .panel { margin-top: 12px; }
+    .inputs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+    .feeds { position: relative; height: 22px; margin-inline: 16.5%; border-inline: 1px solid #789c89; border-bottom: 1px solid #789c89; }
+    .feeds::before { content: ""; position: absolute; left: 50%; height: 22px; border-left: 1px solid #789c89; }
+    .core { margin-top: 13px; background: var(--meet-dark); color: #f5fbf4; text-align: center; padding: 10px 14px; border-radius: 9px; }
+    .core::before { content: "↓"; display: block; position: absolute; top: -17px; left: 50%; transform: translateX(-50%); color: var(--meet-green); font-weight: 800; }
+    .core strong, .core small { color: #eef8e9; }
+    .outputs .branch { padding: 12px 13px; }
+    .outputs .branch p { color: var(--meet-muted); font-size: .86rem; }
+    .events { width: 100%; border-collapse: collapse; font-size: .9rem; margin-top: 3px; }
+    .events th, .events td { padding: 9px 10px; text-align: start; vertical-align: top; border-bottom: 1px solid var(--meet-line); }
+    .events th { width: 28%; color: var(--meet-green); }
+    .events td { color: var(--meet-muted); }
+    .events tr:last-child > * { border-bottom: 0; }
+    details { margin-top: 12px; padding: 10px 14px; border: 1px solid var(--meet-line); border-radius: 9px; background: var(--meet-paper); }
+    summary { cursor: pointer; color: var(--meet-green); font-weight: 720; }
+    details p { margin-top: 8px; color: var(--meet-muted); font-size: .9rem; }
+    footer { border-top: 1px solid var(--meet-line); margin-top: 40px; padding: 18px 0 34px; font-size: .85rem; color: var(--meet-muted); }
+    @media (max-width: 720px) {
+      :root { scroll-padding-top: 12px; }
+      .wrap { width: calc(100% - 28px); }
+      .topbar { position: static; }
+      .top { flex-wrap: wrap; padding-block: 10px; }
+      nav { gap: 4px 12px; }
+      main { padding-top: 15px; }
+      .hero { border-radius: 17px; }
+      section { margin-block: 35px; }
+      .chain { grid-auto-flow: row; grid-auto-columns: auto; gap: 16px; }
+      .chain li + li::before { content: "↓"; right: auto; left: 50%; top: -17px; transform: translateX(-50%); line-height: 1; }
+      .role-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 540px) {
+      .fork { grid-template-columns: 1fr; padding-top: 14px; }
+      .fork::before, .fork::after, .fork .branch::before { display: none; }
+      .branch { padding: 12px; }
+      .join { display: none; }
+      .merge { margin-top: 12px; }
+      .inputs { gap: 5px; }
+      .inputs .node { padding: 7px; }
+      .inputs strong { font-size: .86rem; }
+      .inputs small { font-size: .72rem; }
+      .outputs { padding-top: 24px; gap: 8px; }
+      .outputs::before, .outputs::after, .outputs .branch::before { display: block; }
+      .outputs .branch { padding: 8px; }
+      .outputs .branch h3 { font-size: .95rem; }
+      .events th, .events td { padding-inline: 5px; }
+    }
+    @media print {
+      :root { scroll-padding-top: 0; }
+      .wrap { width: 100%; }
+      .topbar { position: static; }
+      nav { display: none; }
+      body { background: white; }
+      section { margin-block: 24px; }
+      .hero, .panel, .node, .fork, .role-grid, .merge { print-color-adjust: exact; }
+      .panel, .branch, .node { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body id="top">
+  <header class="topbar">
+    <div class="top wrap">
+      <a class="brand" href="#top">OpenBot</a>
+      <nav aria-label="頁面導覽">
+        <a href="#architecture">系統架構</a>
+        <a href="#line">LINE 操控</a>
+        <a href="#agents">代理協作</a>
+        <a href="#meeting">會議流程</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="hero">
+      <h1><span>Google Meet</span> 助理系統</h1>
+      <p>自動入會、整理筆記、回覆提問。也能從 LINE 查詢、取檔或把工作交給指定代理。</p>
+    </div>
+
+    <section id="architecture" aria-labelledby="architecture-title">
+      <h2 id="architecture-title">系統架構</h2>
+      <div class="panel">
+        <figure class="route">
+          <figcaption>從 Google Meet 開始</figcaption>
+          <ol class="chain" role="list">
+            <li class="node start"><strong>Google Meet</strong><small>會議人數、發言、畫面</small></li>
+            <li class="node"><strong>本機監聽與橋接</strong><small>選場、收集資料、發事件</small></li>
+            <li class="node"><strong>OpenBot 會議小助手</strong><small>進出會議、回答、整理</small></li>
+            <li class="node end"><strong>Meet 聊天室與筆記</strong><small>即時回覆、會議記錄</small></li>
+          </ol>
+        </figure>
+        <figure class="route line">
+          <figcaption>從 LINE 群組開始</figcaption>
+          <ol class="chain" role="list">
+            <li class="node start"><strong>授權成員 @ 助理</strong><small>用自然語言下指令</small></li>
+            <li class="node"><strong>LINE 桌面程式</strong><small>讀新訊息、核對權限</small></li>
+            <li class="node"><strong>AI 控制或代理派工</strong><small>本機執行或轉給 OpenBot</small></li>
+            <li class="node end"><strong>回到原 LINE 群組</strong><small>文字結果或筆記附件</small></li>
+          </ol>
+        </figure>
+      </div>
+    </section>
+
+    <section id="line" aria-labelledby="line-title">
+      <h2 id="line-title">LINE 怎麼讓 AI 操控</h2>
+      <figure class="panel">
+        <figcaption>同一個 @ 入口，兩條處理路徑</figcaption>
+        <ol class="chain" role="list">
+          <li class="node"><strong>群組訊息</strong><small>成員以 LINE 的 @ 功能標記助理</small></li>
+          <li class="node"><strong>讀取新訊息</strong><small><code>line-re</code> 讀已登入的桌面程式快取並去重</small></li>
+        </ol>
+        <div class="node decision"><strong>檢查權限並分流</strong><small>核對群組、發送者和 @ 對象</small></div>
+        <div class="fork">
+          <div class="branch">
+            <h3>會議控制</h3>
+            <blockquote>「傳給我最新的 Word 筆記」</blockquote>
+            <ol class="stack" role="list">
+              <li class="node"><strong>收集狀態與筆記</strong><small>帶上相關的會議狀態、設定與筆記片段。</small></li>
+              <li class="node"><strong>AI 提出限定動作</strong><small>回覆、取筆記、改監聽清單或改喚醒名稱。</small></li>
+              <li class="node"><strong>本機程式驗證並執行</strong><small>驗證參數。以取筆記為例，會找檔並視需要轉成 Word。</small></li>
+            </ol>
+          </div>
+          <div class="branch task">
+            <h3>指定代理派工</h3>
+            <blockquote>「幫我問系統維護：目前監聽哪些會議室？」</blockquote>
+            <ol class="stack" role="list">
+              <li class="node"><strong>建立請求並通知 OpenBot</strong><small>核對管理員與代理別名，記下請求編號和原群組。</small></li>
+              <li class="node"><strong>LINE 控制代理轉交</strong><small>比對通知與請求檔，再把問題交給指定代理。</small></li>
+              <li class="node"><strong>專任代理查證並交回摘要</strong><small>LINE 控制代理核對回覆來源，再寫入結果檔。</small></li>
+            </ol>
+          </div>
+        </div>
+        <div class="join" aria-hidden="true"></div>
+        <div class="merge">桌面自動化核對聊天室後送回原群組</div>
+      </figure>
+      <details>
+        <summary>兩條路徑如何交接</summary>
+        <p>會議控制用 JSON（有固定欄位的資料）傳遞模型提議，程式只執行可用動作。派工透過帶簽章的 <code>line.agent.request</code> 通知 OpenBot，LINE 背景程式再讀取結果檔。Windows 上的文字與附件由 <code>cua-driver</code> 操作 LINE 桌面視窗。</p>
+      </details>
+    </section>
+
+    <section id="agents" aria-labelledby="agents-title">
+      <h2 id="agents-title">代理之間怎麼交接</h2>
+      <figure class="panel">
+        <figcaption>手動收尾｜從最後一段發言到群組附件</figcaption>
+        <ol class="chain" role="list">
+          <li class="node start"><strong>會議小助手</strong><small>補記、離會，交出 Markdown 文字筆記。</small></li>
+          <li class="node"><strong>系統維護</strong><small>匯出 Word、停服務，交出檔案位置。</small></li>
+          <li class="node"><strong>LINE 傳送</strong><small>核對版本、目的群組與使用者確認，再傳檔。</small></li>
+          <li class="node end"><strong>指定 LINE 群組</strong><small>收到 Word 附件，傳送結果另有紀錄。</small></li>
+        </ol>
+        <p class="under">自動收尾由會議結束事件啟動，小助手補記與離會後直接交辦 LINE 傳送代理，由接手者查找本場 Word，必要時重轉。</p>
+      </figure>
+      <dl class="role-grid" aria-label="代理職責一覽">
+        <div><dt>系統維護</dt><dd>啟停背景服務、排錯</dd></div>
+        <div><dt>會議小助手</dt><dd>入會、筆記、聊天室回覆</dd></div>
+        <div><dt>Word 輸出</dt><dd>會中定時更新 Word</dd></div>
+        <div><dt>LINE 傳送</dt><dd>會後確認並傳送 Word</dd></div>
+        <div><dt>Meet 的 LINE 控制者</dt><dd>群組指令、轉交代理與回收結果</dd></div>
+        <div><dt>LINE 工具維護</dt><dd>維護桌面收訊、發文與附檔</dd></div>
+      </dl>
+    </section>
+
+    <section id="meeting" aria-labelledby="meeting-title">
+      <h2 id="meeting-title">會議怎麼變成筆記</h2>
+      <figure class="panel">
+        <figcaption>從入會到收尾</figcaption>
+        <ol class="chain" role="list">
+          <li class="node start"><strong>會議前｜偵測入會</strong><small>監聽指定會議室，達人數門檻後擇一加入。</small></li>
+          <li class="node"><strong>會議中｜擷取資料</strong><small>收集字幕、語音轉錄與簡報畫面。</small></li>
+          <li class="node end"><strong>會議後｜整理交付</strong><small>補完筆記、匯出 Word，交接 LINE 傳送。</small></li>
+        </ol>
+      </figure>
+
+      <figure class="panel">
+        <figcaption>三種來源，兩種輸出</figcaption>
+        <ul class="inputs" role="list">
+          <li class="node"><strong>Meet 即時字幕</strong><small>發言人與備用文字</small></li>
+          <li class="node"><strong>本機 Whisper</strong><small>首選語音轉文字</small></li>
+          <li class="node"><strong>分享畫面</strong><small>抓取簡報截圖</small></li>
+        </ul>
+        <div class="feeds" aria-hidden="true"></div>
+        <div class="node core"><strong>本機橋接器</strong><small>選用文字來源、記下新資料與進度</small></div>
+        <div class="fork outputs">
+          <div class="branch">
+            <h3>筆記更新</h3>
+            <p>按時間整理重點、決議與待辦，加入簡報截圖。</p>
+          </div>
+          <div class="branch task">
+            <h3>聊天室即時回覆</h3>
+            <p>JEV 判斷發言是否在提問或交辦，再叫用小助手回覆。</p>
+          </div>
+        </div>
+      </figure>
+
+      <details>
+        <summary>OpenBot 接收的四種會議事件</summary>
+        <table class="events" aria-label="會議事件與動作">
+          <tbody>
+            <tr><th scope="row"><code>meet.start</code></th><td>加入目標會議並開啟字幕。</td></tr>
+            <tr><th scope="row"><code>notes.tick</code></th><td>有新文字或截圖時，約每三分鐘交接一次。</td></tr>
+            <tr><th scope="row"><code>jev.trigger</code></th><td>帶上提問與近期對話，交給小助手即時回覆。</td></tr>
+            <tr><th scope="row"><code>meet.end</code></th><td>補寫最後一段、離會並交接筆記。</td></tr>
+          </tbody>
+        </table>
+      </details>
+    </section>
+  </main>
+
+  <footer class="wrap"><a href="https://github.com/poyen-tseng/google-meet-assistant">GitHub 原始檔</a></footer>
+</body>
+</html>
