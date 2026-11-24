@@ -20,7 +20,7 @@
       --meet-dark: #102f28;
       --meet-accent: #d9f5a8;
       font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
-      scroll-padding-top: 80px;
+      scroll-padding-top: 104px;
     }
     *, *::before, *::after { box-sizing: border-box; }
     body { margin: 0; color: var(--meet-ink); background: var(--meet-bg); line-height: 1.6; }
@@ -31,6 +31,7 @@
     a:focus-visible, summary:focus-visible { outline: 3px solid #20634d; outline-offset: 4px; }
     .wrap { width: min(1110px, calc(100% - 52px)); margin-inline: auto; }
     .topbar { position: sticky; top: 0; z-index: 1; background: var(--meet-bg); border-bottom: 1px solid var(--meet-line); }
+    .credits { padding-top: 9px; color: var(--meet-muted); font-size: .8rem; }
     .top { min-height: 60px; display: flex; justify-content: space-between; align-items: center; gap: 6px 20px; }
     .brand { display: inline-flex; gap: 9px; align-items: center; font-weight: 800; text-decoration: none; }
     .brand::before { content: ""; width: 15px; height: 15px; border: 4px solid var(--meet-accent); background: var(--meet-green); border-radius: 4px; box-shadow: 0 0 0 1px var(--meet-green); }
@@ -167,6 +168,7 @@
 </head>
 <body id="top">
   <header class="topbar">
+    <p class="credits wrap">作者：曾柏諺 指導老師：羅一峰</p>
     <div class="top wrap">
       <a class="brand" href="#top">OpenBot</a>
       <nav aria-label="頁面導覽">
